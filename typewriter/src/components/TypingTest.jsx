@@ -1,106 +1,134 @@
-import React, { useEffect, useState } from "react";
-import { sentences } from "../data/sentences";
+// TypingTestApp.jsx
+import React, { useState, useEffect, useRef } from "react";
+import randomSentences from "../data/sentences";
 
-const TypingTest = () => {
-  const getRandomSentence = () =>
-    sentences[Math.floor(Math.random() * sentences.length)];
-
-  const [sentence, setSentence] = useState(getRandomSentence());
+const TypingTestApp = () => {
+  const [text, setText] = useState("");
   const [input, setInput] = useState("");
-  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds
-  const [isStarted, setIsStarted] = useState(false);
-  const [wpm, setWpm] = useState(0);
-  const [accuracy, setAccuracy] = useState(100);
+  const [timer, setTimer] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(timer);
+  const [started, setStarted] = useState(false);
+  const [wpm, setWpm] = useState(null);
+  const [accuracy, setAccuracy] = useState(null);
 
-  // Start timer on first key press
+  const timerRef = useRef(null);
+
   useEffect(() => {
-    if (isStarted && timeLeft > 0) {
-      const timer = setInterval(() => {
-        setTimeLeft((t) => t - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
+    setText(getRandomSentence());
+  }, []);
 
-    if (timeLeft === 0) {
-      calculateStats();
+  useEffect(() => {
+    if (started && timeLeft > 0) {
+      timerRef.current = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+    } else if (started && timeLeft === 0) {
+      finishTest();
     }
-  }, [isStarted, timeLeft]);
+    return () => clearTimeout(timerRef.current);
+  }, [timeLeft, started]);
 
-  const handleChange = (e) => {
-    if (!isStarted) setIsStarted(true);
-    setInput(e.target.value);
+  const getRandomSentence = () => {
+    return randomSentences[Math.floor(Math.random() * randomSentences.length)];
   };
 
-  const getColoredText = () => {
-    const inputChars = input.split("");
-    return sentence.split("").map((char, index) => {
-      let color = "black";
-      if (index < inputChars.length) {
-        color = inputChars[index] === char ? "green" : "red";
+  const handleStart = () => {
+    setStarted(true);
+    setTimeLeft(timer);
+    setInput("");
+    setWpm(null);
+    setAccuracy(null);
+  };
+
+  const handleChangeSentence = () => {
+    setText(getRandomSentence());
+    setInput("");
+    setStarted(false);
+    setWpm(null);
+    setAccuracy(null);
+    setTimeLeft(timer);
+  };
+
+  const handleChange = (e) => {
+    if (!started) setStarted(true);
+    setInput(e.target.value);
+
+    if (e.target.value === text) {
+      finishTest();
+    }
+  };
+
+  const finishTest = () => {
+    clearTimeout(timerRef.current);
+    setStarted(false);
+    const words = input.trim().split(" ").filter(Boolean);
+    const correctChars = input.split("").filter((char, i) => char === text[i])
+      .length;
+    setWpm(Math.round((words.length / timer) * 60));
+    setAccuracy(Math.round((correctChars / text.length) * 100));
+  };
+
+  const renderText = () => {
+    return text.split("").map((char, i) => {
+      let color = "text-gray-400";
+      if (i < input.length) {
+        color = char === input[i] ? "text-green-500" : "text-red-500";
       }
       return (
-        <span key={index} style={{ color, fontWeight: "bold" }}>
+        <span key={i} className={`${color} text-xl sm:text-2xl md:text-3xl`}>
           {char}
         </span>
       );
     });
   };
 
-  const calculateStats = () => {
-    const words = input.trim().split(" ").filter((w) => w !== "");
-    const correctChars = input
-      .split("")
-      .filter((char, i) => char === sentence[i]).length;
-    const totalChars = input.length;
-
-    const wpmCalc = Math.round((words.length / 1)); // since time is 60 seconds = 1 min
-    const accuracyCalc = totalChars === 0 ? 0 : Math.round((correctChars / totalChars) * 100);
-
-    setWpm(wpmCalc);
-    setAccuracy(accuracyCalc);
-  };
-
-  const handleRestart = () => {
-    setSentence(getRandomSentence());
-    setInput("");
-    setTimeLeft(60);
-    setIsStarted(false);
-    setWpm(0);
-    setAccuracy(100);
-  };
-
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h2>Typing Test</h2>
-      <p style={{ fontSize: "20px" }}>
-        Time Left: <strong>{timeLeft}s</strong>
-      </p>
-      <p style={{ fontSize: "24px", minHeight: "30px" }}>{getColoredText()}</p>
-      <input
-        type="text"
-        value={input}
-        onChange={handleChange}
-        disabled={timeLeft === 0}
-        placeholder="Start typing here..."
-        style={{
-          padding: "10px",
-          width: "70%",
-          fontSize: "18px",
-          marginBottom: "20px",
-        }}
-      />
-      {timeLeft === 0 && (
-        <div style={{ marginTop: "20px" }}>
-          <h3>Results</h3>
-          <p>WPM: {wpm}</p>
-          <p>Accuracy: {accuracy}%</p>
-          <button onClick={handleRestart} style={{ marginTop: "10px" }}>
-            Restart
+    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center px-4">
+      <div className="w-full max-w-4xl text-center space-y-6">
+        <h1 className="text-3xl md:text-5xl font-bold mb-4">Typing Test</h1>
+
+        <div className="bg-gray-800 rounded-lg p-6 overflow-y-auto max-h-56 border border-gray-700">
+          <div className="text-left flex flex-wrap leading-relaxed text-lg">
+            {renderText()}
+          </div>
+        </div>
+
+        <input
+          className="mt-4 w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded text-lg text-white focus:outline-none"
+          placeholder="Start typing here..."
+          value={input}
+          onChange={handleChange}
+          disabled={timeLeft === 0 || !text}
+        />
+
+        <div className="flex flex-wrap justify-center gap-4 mt-4">
+          <select
+            value={timer}
+            onChange={(e) => {
+              setTimer(Number(e.target.value));
+              setTimeLeft(Number(e.target.value));
+            }}
+            className="bg-gray-700 text-white px-4 py-2 rounded"
+          >
+            <option value={15}>15 sec</option>
+            <option value={30}>30 sec</option>
+            <option value={60}>60 sec</option>
+          </select>
+
+          <button
+            onClick={handleChangeSentence}
+            className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded"
+          >
+            Change Sentence
           </button>
         </div>
-      )}
+
+        <div className="text-lg mt-4">
+          <p>Time Left: {timeLeft}s</p>
+          {wpm !== null && <p>WPM: {wpm}</p>}
+          {accuracy !== null && <p>Accuracy: {accuracy}%</p>}
+        </div>
+      </div>
     </div>
   );
 };
 
-export default TypingTest;
+export default TypingTestApp;
