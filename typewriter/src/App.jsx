@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { fetchLyrics, getRandomSampleLyrics, searchSongs, getPopularSongs } from './services/lyricsAPI';
+import { fetchLyrics, getRandomSampleLyrics, searchSongs, getPopularSongs, testAllLyricsServices } from './services/lyricsAPI';
+import { getTestLyrics } from './services/testAPI';
 import './App.css';
 
 function App() {
-  const [sentence, setSentence] = useState('');
+  // Simple test to ensure React is rendering
+  console.log('App component is rendering');
+  
+  const [sentence, setSentence] = useState('Type this sample text to test the typing interface while we load lyrics');
   const [userInput, setUserInput] = useState('');
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -18,7 +22,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [showSearch, setShowSearch] = useState(false);
   const [selectedSong, setSelectedSong] = useState(null);
   const [error, setError] = useState('');
 
@@ -41,6 +44,12 @@ function App() {
     }
     setLoading(false);
   };
+
+  // Load sample lyrics on component mount
+  useEffect(() => {
+    console.log('App component mounted, loading sample lyrics...');
+    loadRandomLyrics();
+  }, []);
 
   const loadRandomLyrics = async () => {
     setLoading(true);
@@ -65,16 +74,73 @@ function App() {
     try {
       console.log(`Loading lyrics for: ${artist} - ${title}`);
       const lyrics = await fetchLyrics(artist, title);
+      
+      // Check if we got actual lyrics or fallback
+      const sampleLyrics = getRandomSampleLyrics();
+      const isUsingFallback = lyrics.includes('happy birthday') || 
+                             lyrics.includes('twinkle twinkle') || 
+                             lyrics.includes('row row row') ||
+                             lyrics.includes('mary had a little lamb') ||
+                             lyrics.includes('london bridge') ||
+                             lyrics.includes('wheels on the bus') ||
+                             lyrics === sampleLyrics;
+      
       setSentence(lyrics);
       
-      if (lyrics === getRandomSampleLyrics()) {
+      if (isUsingFallback) {
         setError(`Could not find lyrics for "${title}" by ${artist}. Using sample text instead.`);
+      } else {
+        console.log('Successfully loaded song lyrics!');
+        setError(''); // Clear any previous errors
       }
     } catch (error) {
       console.error('Error loading song lyrics:', error);
       const fallbackLyrics = getRandomSampleLyrics();
       setSentence(fallbackLyrics);
       setError(`Failed to load "${title}" by ${artist}. Using sample text instead.`);
+    }
+    setLoading(false);
+  };
+
+  // Enhanced test function that tests all services including Musixmatch
+  const testAPI = async () => {
+    console.log('=== Testing All Lyrics Services ===');
+    try {
+      setLoading(true);
+      setError('🧪 Testing Musixmatch and Genius APIs...');
+      
+      // Run the simplified API test (removed ovh API as requested)
+      const testResults = await testAllLyricsServices();
+      console.log('API Test Results:', testResults);
+      
+      // Create detailed status message
+      let statusMessage = '🔍 API Test Results:\n';
+      
+      if (testResults.musixmatch?.success) {
+        statusMessage += '✅ Musixmatch API: Working\n';
+      } else {
+        statusMessage += '❌ Musixmatch API: ' + (testResults.musixmatch?.error || 'Failed') + '\n';
+      }
+      
+      if (testResults.genius?.success) {
+        statusMessage += '✅ Genius API: Working\n';
+      } else {
+        statusMessage += '❌ Genius API: ' + (testResults.genius?.error || 'Failed') + '\n';
+      }
+      
+      // Note about removed API
+      statusMessage += 'ℹ️ Lyrics.ovh API: Removed as requested\n';
+      
+      statusMessage += `\n📊 Overall Status: ${testResults.overall.toUpperCase()}`;
+      
+      // Set sample text for testing
+      setSentence(getTestLyrics());
+      setError(statusMessage);
+      
+    } catch (error) {
+      console.error('Comprehensive test failed:', error);
+      setSentence(getTestLyrics());
+      setError(`❌ Test failed: ${error.message}. Check browser console for details.`);
     }
     setLoading(false);
   };
@@ -321,6 +387,14 @@ function App() {
                 disabled={loading}
               >
                 🎲 Random Sample Text
+              </button>
+              <button 
+                className="test-btn"
+                onClick={testAPI}
+                disabled={loading}
+                style={{ marginLeft: '10px', background: '#e53e3e' }}
+              >
+                🔬 Test Musixmatch + Genius
               </button>
             </div>
           </div>

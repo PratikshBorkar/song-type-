@@ -1,9 +1,9 @@
-// Enhanced lyrics fetcher using Genius API for search with fallback
+// Simplified lyrics fetcher using Musixmatch API as primary source with Genius fallback
+import { searchAndGetLyrics as musixmatchSearch, testMusixmatchAPI } from './musixmatchAPI.js';
+
 const GENIUS_BASE = 'https://api.genius.com';
-const LYRICS_API_BASE = 'https://api.lyrics.ovh/v1';
 
 // You can get a client access token from https://genius.com/api-clients
-// For now, we'll use the API without authentication for basic search
 const GENIUS_ACCESS_TOKEN = null; // Add your Genius API access token here if available
 
 // Sample public domain/traditional songs for fallback
@@ -37,32 +37,43 @@ const popularSongs = [
 
 export const fetchLyrics = async (artist, title) => {
   try {
-    console.log(`Fetching lyrics for: ${artist} - ${title}`);
+    console.log(`=== Starting lyrics fetch for: ${artist} - ${title} ===`);
     
-    // First, try to get song info from Genius API
-    const songInfo = await searchGeniusForSong(artist, title);
-    
-    if (songInfo) {
-      console.log(`Found song on Genius: ${songInfo.full_title}`);
-      // Try to get lyrics from lyrics API using the exact song info
-      const lyrics = await fetchLyricsFromAPI(songInfo.primary_artist.name, songInfo.title);
-      if (lyrics !== getRandomSampleLyrics()) {
-        return lyrics;
+    // 🎵 PRIMARY: Try Musixmatch API first (most reliable)
+    console.log('🎵 Trying Musixmatch API...');
+    try {
+      const musixmatchResult = await musixmatchSearch(artist, title);
+      if (musixmatchResult && musixmatchResult.lyrics) {
+        console.log('✅ Successfully got lyrics from Musixmatch!');
+        return cleanLyrics(musixmatchResult.lyrics);
       }
+    } catch (musixmatchError) {
+      console.log('❌ Musixmatch failed:', musixmatchError.message);
     }
     
-    // Fallback: Try original artist and title with lyrics API
-    console.log('Trying direct lyrics API approach...');
-    const directLyrics = await fetchLyricsFromAPI(artist, title);
-    if (directLyrics !== getRandomSampleLyrics()) {
-      return directLyrics;
+    // 🔍 FALLBACK: Try Genius API for metadata only (for song info)
+    console.log('🔍 Trying Genius API for song search...');
+    try {
+      const songInfo = await searchGeniusForSong(artist, title);
+      if (songInfo) {
+        console.log(`Found song on Genius: ${songInfo.full_title}`);
+        // We found the song but can't get full lyrics from Genius API directly
+        // For now, we'll use sample lyrics but with proper song info
+        console.log('ℹ️ Song found on Genius but lyrics require different service');
+      }
+    } catch (geniusError) {
+      console.log('❌ Genius search failed:', geniusError.message);
     }
     
-    throw new Error('No lyrics found from any source');
+    // 📝 FINAL FALLBACK: Use sample lyrics
+    console.log('🔄 Using sample lyrics as final fallback...');
+    throw new Error(`No lyrics found for "${title}" by ${artist}`);
+    
   } catch (error) {
-    console.log('All lyrics fetching failed:', error.message);
+    console.log('=== All lyrics fetching failed ===');
+    console.log('Error details:', error.message);
     console.log('Using fallback sample lyrics');
-    return getRandomSampleLyrics();
+    return cleanLyrics(getRandomSampleLyrics());
   }
 };
 
@@ -118,34 +129,7 @@ const searchGeniusForSong = async (artist, title) => {
   }
 };
 
-const fetchLyricsFromAPI = async (artist, title) => {
-  try {
-    const cleanArtist = encodeURIComponent(artist.trim());
-    const cleanTitle = encodeURIComponent(title.trim());
-    
-    const response = await fetch(`${LYRICS_API_BASE}/${cleanArtist}/${cleanTitle}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Lyrics API responded with status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.lyrics || data.lyrics.trim() === '') {
-      throw new Error('No lyrics found in response');
-    }
-    
-    return cleanLyrics(data.lyrics);
-  } catch (error) {
-    console.log('Lyrics API fetch failed:', error.message);
-    return getRandomSampleLyrics();
-  }
-};
+// Removed fetchLyricsFromAPI function - discarded ovh API
 
 export const searchSongs = async (query) => {
   try {
@@ -243,6 +227,60 @@ const detectLanguage = (artistName) => {
   }
   
   return 'English';
+};
+
+// Simplified test function for Musixmatch + Genius only
+export const testAllLyricsServices = async () => {
+  console.log('🧪 Testing available lyrics services...');
+  
+  const results = {
+    musixmatch: null,
+    genius: null,
+    overall: 'unknown'
+  };
+  
+  // Test Musixmatch API
+  console.log('1. Testing Musixmatch API...');
+  try {
+    const musixmatchResult = await testMusixmatchAPI();
+    results.musixmatch = musixmatchResult;
+    console.log('Musixmatch result:', musixmatchResult);
+  } catch (error) {
+    results.musixmatch = { success: false, error: error.message };
+    console.error('Musixmatch test failed:', error);
+  }
+  
+  // Test Genius API
+  console.log('2. Testing Genius API...');
+  try {
+    const geniusResult = await searchGeniusForSong('Queen', 'Bohemian Rhapsody');
+    results.genius = geniusResult ? { success: true, found: true } : { success: true, found: false };
+    console.log('Genius API working:', !!geniusResult);
+  } catch (error) {
+    results.genius = { success: false, error: error.message };
+    console.error('Genius test failed:', error);
+  }
+  
+  // Note: Removed Lyrics.ovh API as requested
+  console.log('ℹ️ Lyrics.ovh API has been removed from the system');
+  results.lyricsOvh = { success: false, removed: true, message: 'API removed as requested' };
+  
+  // Determine overall status (based on Musixmatch + Genius only)
+  const workingServices = [
+    results.musixmatch?.success,
+    results.genius?.success
+  ].filter(Boolean).length;
+  
+  if (workingServices >= 2) {
+    results.overall = 'good';
+  } else if (workingServices === 1) {
+    results.overall = 'limited';
+  } else {
+    results.overall = 'poor';
+  }
+  
+  console.log('🏁 Test complete. Overall status:', results.overall);
+  return results;
 };
 
 const cleanLyrics = (lyrics) => {
