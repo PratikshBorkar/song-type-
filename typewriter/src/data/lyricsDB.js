@@ -3,8 +3,8 @@ export const lyricsDB = [
   {
     title: "Perfect",
     artist: "Ed Sheeran",
-    lyrics: `I found a love for me
-Oh, darling, just dive right in and follow my lead
+    lyrics: `I found a love for me 
+ Oh, darling, just dive right in and follow my lead
 Well, I found a girl, beautiful and sweet
 Oh, I never knew you were the someone waitin' for me
 'Cause we were just kids when we fell in love, not knowin' what it was
@@ -114,15 +114,14 @@ But I'm just a poor boy, nobody loves me
 He's just a poor boy from a poor family
 Spare him his life from this monstrosity
 Easy come, easy go, will you let me go?
-بِسْمِ ٱللَّٰهِ
 No, we will not let you go (let him go)
-بِسْمِ ٱللَّٰهِ
 We will not let you go (let him go)
-بِسْمِ ٱللَّٰهِ
+
 We will not let you go (let me go)
 Will not let you go (let me go)
-Will not let you go (never, never, never, never let me go)
-No, no, no, no, no, no, no
+Will not let you go (never, never, never, never let me go)`
+  
+lyrics: `Is this the real life? Is this just fantasy?
 Oh, mamma mia, mamma mia
 Mamma mia, let me go
 Beelzebub has a devil put aside for me, for me, for me
