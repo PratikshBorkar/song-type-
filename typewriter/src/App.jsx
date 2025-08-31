@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchLyrics, getRandomSampleLyrics, searchSongs, getPopularSongs, testAllLyricsServices } from './services/lyricsAPI';
+import { getAllSongs, getLyricsByTitle } from './data/lyricsDB';
 import { getTestLyrics } from './services/testAPI';
 import './App.css';
 
@@ -21,29 +21,16 @@ function App() {
   const [totalWords, setTotalWords] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [songList, setSongList] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [error, setError] = useState('');
 
   // Load initial lyrics and popular songs
   useEffect(() => {
-    loadInitialContent();
+    // Load all songs from local DB on mount
+    setSongList(getAllSongs());
+    setSentence('Select a song to start typing its lyrics!');
   }, []);
-
-  const loadInitialContent = async () => {
-    setLoading(true);
-    try {
-      const lyrics = getRandomSampleLyrics();
-      setSentence(lyrics);
-      const popular = getPopularSongs();
-      setSearchResults(popular);
-    } catch (error) {
-      console.error('Error loading initial content:', error);
-      setSentence('The quick brown fox jumps over the lazy dog');
-      setError('Failed to load initial content');
-    }
-    setLoading(false);
-  };
 
   // Load sample lyrics on component mount
   useEffect(() => {
@@ -66,38 +53,17 @@ function App() {
     setLoading(false);
   };
 
-  const loadSongLyrics = async (artist, title) => {
+  const loadSongLyrics = (artist, title) => {
     setLoading(true);
     setError('');
     setSelectedSong({ artist, title });
-    
-    try {
-      console.log(`Loading lyrics for: ${artist} - ${title}`);
-      const lyrics = await fetchLyrics(artist, title);
-      
-      // Check if we got actual lyrics or fallback
-      const sampleLyrics = getRandomSampleLyrics();
-      const isUsingFallback = lyrics.includes('happy birthday') || 
-                             lyrics.includes('twinkle twinkle') || 
-                             lyrics.includes('row row row') ||
-                             lyrics.includes('mary had a little lamb') ||
-                             lyrics.includes('london bridge') ||
-                             lyrics.includes('wheels on the bus') ||
-                             lyrics === sampleLyrics;
-      
+    const lyrics = getLyricsByTitle(title);
+    if (lyrics) {
       setSentence(lyrics);
-      
-      if (isUsingFallback) {
-        setError(`Could not find lyrics for "${title}" by ${artist}. Using sample text instead.`);
-      } else {
-        console.log('Successfully loaded song lyrics!');
-        setError(''); // Clear any previous errors
-      }
-    } catch (error) {
-      console.error('Error loading song lyrics:', error);
-      const fallbackLyrics = getRandomSampleLyrics();
-      setSentence(fallbackLyrics);
-      setError(`Failed to load "${title}" by ${artist}. Using sample text instead.`);
+      setError('');
+    } else {
+      setSentence('Lyrics not found for this song.');
+      setError('Lyrics not found.');
     }
     setLoading(false);
   };
@@ -359,9 +325,9 @@ function App() {
 
             {/* Search Results / Popular Songs */}
             <div className="song-results">
-              <h4>{searchQuery ? 'Search Results' : 'Popular Songs'}</h4>
+              <h4>Song List</h4>
               <div className="songs-grid">
-                {searchResults.map((song, index) => (
+                {songList.map((song, index) => (
                   <button
                     key={index}
                     className="song-btn"
@@ -371,9 +337,6 @@ function App() {
                     <div className="song-info">
                       <div className="song-title">{song.title}</div>
                       <div className="song-artist">{song.artist}</div>
-                      {song.language && song.language !== 'English' && (
-                        <div className="song-language">🌍 {song.language}</div>
-                      )}
                     </div>
                   </button>
                 ))}
